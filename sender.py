@@ -5,8 +5,10 @@ import time
 
 from scapy.all import *
 
-SRC_MAC = "fe:{:02x}:{}:{}:{}:{}"
-DST_MAC = "33:33:{}:{}:{}:{}"
+import utils
+
+SRC_MAC = "fe:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}"
+DST_MAC = "33:33:{:02x}:{:02x}:{:02x}:{:02x}"
 
 
 def grouper(iterable, n, fillvalue=None):
@@ -16,18 +18,26 @@ def grouper(iterable, n, fillvalue=None):
     return zip_longest(*args, fillvalue=fillvalue)
 
 
-def send(data):
-    # Convert data to bytes
-    data_bytes = ["{:02x}".format(ord(c)) for c in data]
+def send(data: str) -> None:
+    data = data.encode('utf-8')
 
-    print(data_bytes)
-    for i, group in enumerate(grouper(data_bytes, 8, "00")):
+    # Encrypt the data
+    encrypted_data = utils.encrypt_message(key=b'1234567894123456',
+                                           message=data)
+
+    # Integrity protect data
+    hash_data = utils.hash_message(key=b'key', message=encrypted_data)
+
+    assert len(encrypted_data) % 8 == 0
+
+    for i, group in enumerate(grouper(encrypted_data + hash_data, 8)):
         src = SRC_MAC.format(i, *group[:4])
         dst = DST_MAC.format(*group[4:])
 
         packet = Ether(src=src, dst=dst)
         packet.show()
         sendp(packet)
+
         time.sleep(.5)
 
 
