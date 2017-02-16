@@ -3,12 +3,9 @@ import argparse
 import pyshark
 
 FILTER = "wlan[4] == 0x33 and wlan[5] == 0x33 and wlan[16] == 0xfe"
-ALL_DATA = ""
 
 
 def process_packet(packet):
-    global ALL_DATA
-
     src = packet.wlan.sa
     dst = packet.wlan.da
 
@@ -18,8 +15,7 @@ def process_packet(packet):
     data = ''.join(src_data + dst_data)
     data = bytearray.fromhex(data).decode()
 
-    ALL_DATA += data
-    print(ALL_DATA)
+    return sequence, data
 
 
 def get_wifi_information(interface):
@@ -29,6 +25,9 @@ def get_wifi_information(interface):
                                   capture_filter=FILTER)
     capture.set_debug()
     capture.apply_on_packets(process_packet)
+
+    for packet in capture.sniff_continuously():
+        data = process_packet(packet)
 
 
 if __name__ == '__main__':
