@@ -2,9 +2,7 @@ import argparse
 import json
 import logging
 
-# TODO: Fix this
 import pyshark
-
 import utils
 
 logging.basicConfig(level=logging.DEBUG)
