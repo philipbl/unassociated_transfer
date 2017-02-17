@@ -5,7 +5,9 @@ import pyshark
 
 import utils
 
+logging.basicConfig(level=logging.DEBUG)
 LOGGER = logging.getLogger(__name__)
+
 FILTER = "wlan[4] == 0x33 and wlan[5] == 0x33 and wlan[16] == 0xfe"
 
 
@@ -65,10 +67,18 @@ def get_data(interface):
 def get_wifi_information(data):
     LOGGER.debug("Converting to SSID and password")
 
+    # TODO: Remove padding
+
+    # TODO: Split apart
+    return None, None
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('interface')
     args = parser.parse_args()
 
-    get_wifi_information(get_data(args.interface))
+    ssid, password = get_wifi_information(get_data(args.interface))
+
+    print("SSID:", ssid)
+    print("Password:", password)

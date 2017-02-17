@@ -8,7 +8,9 @@ from scapy.all import *
 
 import utils
 
+logging.basicConfig(level=logging.DEBUG)
 LOGGER = logging.getLogger(__name__)
+
 SRC_MAC = "fe:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}"
 DST_MAC = "33:33:{:02x}:{:02x}:{:02x}:{:02x}"
 
