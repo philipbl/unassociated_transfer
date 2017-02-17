@@ -15,14 +15,13 @@ def main(interface: str) -> None:
                     config['encryption_key'].encode(),
                     config['integrity_key'].encode())
 
-    print(data)
-    data = data.encode()
-    print(data)
+    data = data.decode()
+    data = data.replace('\0', '')
 
     ssid, password = data.split(':')
 
     print("SSID:", ssid)
-    print("Password", password)
+    print("Password:", password)
 
 
 if __name__ == '__main__':
