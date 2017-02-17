@@ -32,12 +32,21 @@ def send(data: str) -> None:
     LOGGER.debug("Encrypted data: %s", encrypted_data)
     LOGGER.debug("MAC: %s", mac_data)
 
-    assert len(encrypted_data) % 8 == 0
+    all_data = encrypted_data + mac_data
+
+    assert len(all_data) % 8 == 0
+    total_packets = len(all_data) / 8
+
+    if total_packets > 127:
+        LOGGER.error("The data is too big and too many packets need to be sent.")
+        return
 
     retries = 5
     for retry in range(retries):
-        for i, group in enumerate(grouper(encrypted_data + mac_data, 8)):
-            src = SRC_MAC.format(i, *group[:4])
+        for i, group in enumerate(grouper(all_data, 8)):
+            sequence = i << i + 0 if i != total_packets - 1 else 1
+
+            src = SRC_MAC.format(sequence, *group[:4])
             dst = DST_MAC.format(*group[4:])
 
             LOGGER.debug("Sending packet: Ether(src=%s, dst=%s)", src, dst)

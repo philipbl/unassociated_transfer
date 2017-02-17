@@ -1,6 +1,7 @@
 import argparse
 import logging
 
+# TODO: Fix this
 import pyshark
 
 import utils
@@ -21,9 +22,10 @@ def process_packet(packet):
     data = ''.join(src_data + dst_data)
     data = bytearray.fromhex(data)
 
-    sequence = int(sequence, base=16)
+    last_packet = 0x0001 & sequence
+    sequence = int(sequence >> 1, base=16)
 
-    return sequence, data
+    return sequence, last_packet, data
 
 
 def get_data(interface):
@@ -33,15 +35,21 @@ def get_data(interface):
 
     while True:
         packets = {}
+        num_packets = -1
         for packet in capture.sniff_continuously():
-            sequence, data = process_packet(packet)
+            sequence, last_packet, data = process_packet(packet)
+
+            LOGGER.debug("Sequence: %s", sequence)
+            LOGGER.debug("Last packet: %s", last_packet)
+
+            if last_packet:
+                num_packets = sequence
 
             if sequence not in packets:
                 LOGGER.debug("Received %s", sequence)
                 packets[sequence] = data
 
-            # TODO: Fix this
-            if len(packets) == 4:
+            if len(packets) == num_packets:
                 break
 
         # Pull out the data and pull out the MAC
@@ -64,21 +72,10 @@ def get_data(interface):
     return data
 
 
-def get_wifi_information(data):
-    LOGGER.debug("Converting to SSID and password")
-
-    # TODO: Remove padding
-
-    # TODO: Split apart
-    return None, None
-
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('interface')
     args = parser.parse_args()
 
-    ssid, password = get_wifi_information(get_data(args.interface))
-
-    print("SSID:", ssid)
-    print("Password:", password)
+    data = get_data(args.interface)
+    print(data)
