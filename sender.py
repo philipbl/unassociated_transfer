@@ -1,5 +1,6 @@
 import argparse
 from itertools import zip_longest
+import json
 import logging
 import sys
 import time
@@ -22,12 +23,10 @@ def grouper(iterable, n, fillvalue=None):
     return zip_longest(*args, fillvalue=fillvalue)
 
 
-def send(data: str) -> None:
-    data = data.encode('utf-8')
-
-    encrypted_data = utils.encrypt_message(key=b'1234567894123456',
+def send(data: bytes, encryption_key: bytes, integrity_key: bytes) -> None:
+    encrypted_data = utils.encrypt_message(key=encryption_key,
                                            message=data)
-    mac_data = utils.hash_message(key=b'key', message=encrypted_data)
+    mac_data = utils.hash_message(key=integrity_key, message=encrypted_data)
 
     LOGGER.debug("Encrypted data: %s", encrypted_data)
     LOGGER.debug("MAC: %s", mac_data)
@@ -63,9 +62,14 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    with open('config.json') as f:
+        config = json.load(f)
+
     if isinstance(args.data, str):
         data = args.data
     else:
         data = args.data.read()
 
-    send(data)
+    send(data.encode(),
+         config['encryption_key'].encode(),
+         config['integrity_key'].encode())

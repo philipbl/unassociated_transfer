@@ -29,7 +29,7 @@ def process_packet(packet):
     return sequence, last_packet, data
 
 
-def get_data(interface):
+def get_data(interface: str, encryption_key: bytes, integrity_key: bytes) -> str:
     capture = pyshark.LiveCapture(interface=interface,
                                   monitor_mode=True,
                                   capture_filter=FILTER)
@@ -50,24 +50,26 @@ def get_data(interface):
                 LOGGER.debug("Received %s", sequence)
                 packets[sequence] = data
 
+            LOGGER.debug("")
+
             if len(packets) == num_packets:
                 break
 
         # Pull out the data and pull out the MAC
         packets = sorted(packets.items())
-
         encrypted_data = b''.join([value for key, value in packets[:-2]])
         mac_data = b''.join([value for key, value in packets[-2:]])
 
         LOGGER.debug("Encrypted data: %s", encrypted_data)
         LOGGER.debug("MAC: %s", mac_data)
 
-        if mac_data == utils.hash_message(key=b'key', message=encrypted_data):
+        if mac_data == utils.hash_message(key=integrity_key,
+                                          message=encrypted_data):
             break
         else:
             LOGGER.warning("MAC is different -- the data is invalid. Retrying...")
 
-    data = utils.decrypt_message(key=b'1234567894123456',
+    data = utils.decrypt_message(key=encryption_key,
                                  message=encrypted_data)
     LOGGER.debug("Data: %s", data)
     return data
@@ -78,5 +80,10 @@ if __name__ == '__main__':
     parser.add_argument('interface')
     args = parser.parse_args()
 
-    data = get_data(args.interface)
+    with open('config.json') as f:
+        config = json.load(f)
+
+    data = get_data(args.interface,
+                    config['encryption_key'].encode(),
+                    config['integrity_key'].encode())
     print(data)
