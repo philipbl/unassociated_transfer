@@ -57,15 +57,17 @@ def get_data(interface: str, encryption_key: bytes, integrity_key: bytes) -> str
         packets = sorted(packets.items())
 
         iv_data = b''.join([value for key, value in packets[:2]])
-        encrypted_data = b''.join([value for key, value in packets[2:-2]])
+        global_sequence_data = b''.join([value for key, value in packets[2]])
+        encrypted_data = b''.join([value for key, value in packets[3:-2]])
         mac_data = b''.join([value for key, value in packets[-2:]])
 
         LOGGER.debug("IV: %s", iv_data)
+        LOGGER.debug("Global sequence number: %s", global_sequence_data)
         LOGGER.debug("Encrypted data: %s", encrypted_data)
         LOGGER.debug("MAC: %s", mac_data)
 
         if mac_data == utils.hash_message(key=integrity_key,
-                                          message=encrypted_data):
+                                          message=global_sequence_data + encrypted_data):
             break
         else:
             LOGGER.warning("MAC is different -- the data is invalid. Retrying...")

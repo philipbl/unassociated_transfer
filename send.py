@@ -30,30 +30,36 @@ def send(data: bytes, encryption_key: bytes, integrity_key: bytes) -> None:
         return
 
     iv_data = utils.generate_iv()
+    global_sequence_data = struct.pack('!Q', int(time.time()))
     encrypted_data = utils.encrypt_message(key=encryption_key,
                                            iv=iv_data,
                                            message=data)
-    mac_data = utils.hash_message(key=integrity_key, message=encrypted_data)
+    mac_data = utils.hash_message(key=integrity_key,
+                                  message=global_sequence_data + encrypted_data)
 
     LOGGER.debug("IV: %s", iv_data)
+    LOGGER.debug("Global sequence number: %s", global_sequence_data)
     LOGGER.debug("Encrypted data: %s", encrypted_data)
     LOGGER.debug("MAC: %s", mac_data)
 
-    all_data = iv_data + encrypted_data + mac_data
+    all_data = iv_data + global_sequence_data + encrypted_data + mac_data
 
-    assert len(all_data) % 8 == 0
+    if len(all_data) % 8 != 0:
+        LOGGER.error("All data is not divisible by 8!")
+        return
+
     total_packets = len(all_data) / 8
 
-    if total_packets > 127:
+    if total_packets >= 128:  # 7 bits long
         LOGGER.error("The data is too big and too many packets need to be sent.")
         return
 
     retries = 5
     for retry in range(retries):
-        for i, group in enumerate(grouper(all_data, 8)):
-            sequence = (i << 1) + (0 if i != total_packets - 1 else 1)
+        for sequence, group in enumerate(grouper(all_data, 8)):
+            header = (sequence << 1) + (0 if sequence != total_packets - 1 else 1)
 
-            src = SRC_MAC.format(sequence, *group[:4])
+            src = SRC_MAC.format(header, *group[:4])
             dst = DST_MAC.format(*group[4:])
 
             LOGGER.debug("Sending packet: Ether(src=%s, dst=%s)", src, dst)
