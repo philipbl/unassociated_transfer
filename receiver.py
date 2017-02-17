@@ -44,7 +44,7 @@ def get_data(interface):
             LOGGER.debug("Last packet: %s", last_packet)
 
             if last_packet:
-                num_packets = sequence
+                num_packets = sequence + 1
 
             if sequence not in packets:
                 LOGGER.debug("Received %s", sequence)
