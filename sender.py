@@ -1,5 +1,6 @@
 import argparse
 from itertools import zip_longest
+import logging
 import sys
 import time
 
@@ -7,6 +8,7 @@ from scapy.all import *
 
 import utils
 
+LOGGER = logging.getLogger(__name__)
 SRC_MAC = "fe:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}"
 DST_MAC = "33:33:{:02x}:{:02x}:{:02x}:{:02x}"
 
@@ -21,24 +23,27 @@ def grouper(iterable, n, fillvalue=None):
 def send(data: str) -> None:
     data = data.encode('utf-8')
 
-    # Encrypt the data
     encrypted_data = utils.encrypt_message(key=b'1234567894123456',
                                            message=data)
+    mac_data = utils.hash_message(key=b'key', message=encrypted_data)
 
-    # Integrity protect data
-    hash_data = utils.hash_message(key=b'key', message=encrypted_data)
+    LOGGER.debug("Encrypted data: %s", encrypted_data)
+    LOGGER.debug("MAC: %s", mac_data)
 
     assert len(encrypted_data) % 8 == 0
 
-    for i, group in enumerate(grouper(encrypted_data + hash_data, 8)):
-        src = SRC_MAC.format(i, *group[:4])
-        dst = DST_MAC.format(*group[4:])
+    retries = 5
+    for retry in range(retries):
+        for i, group in enumerate(grouper(encrypted_data + mac_data, 8)):
+            src = SRC_MAC.format(i, *group[:4])
+            dst = DST_MAC.format(*group[4:])
 
-        packet = Ether(src=src, dst=dst)
-        packet.show()
-        sendp(packet)
+            LOGGER.debug("Sending packet: Ether(src=%s, dst=%s)", src, dst)
+            sendp(Ether(src=src, dst=dst))
 
-        time.sleep(.5)
+            time.sleep(.2)
+
+        time.sleep(5)
 
 
 if __name__ == '__main__':

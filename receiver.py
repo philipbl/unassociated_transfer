@@ -1,9 +1,11 @@
 import argparse
+import logging
 
 import pyshark
 
 import utils
 
+LOGGER = logging.getLogger(__name__)
 FILTER = "wlan[4] == 0x33 and wlan[5] == 0x33 and wlan[16] == 0xfe"
 
 
@@ -22,43 +24,46 @@ def process_packet(packet):
     return sequence, data
 
 
-def get_wifi_information(interface):
-    print(interface)
+def get_data(interface):
     capture = pyshark.LiveCapture(interface=interface,
                                   monitor_mode=True,
                                   capture_filter=FILTER)
-    capture.set_debug()
 
-    packets = {}
-    for packet in capture.sniff_continuously():
-        sequence, data = process_packet(packet)
+    while True:
+        packets = {}
+        for packet in capture.sniff_continuously():
+            sequence, data = process_packet(packet)
 
-        if sequence not in packets:
-            print("Received", sequence)
-            packets[sequence] = data
+            if sequence not in packets:
+                LOGGER.debug("Received %s", sequence)
+                packets[sequence] = data
 
-        if len(packets) == 4:
+            # TODO: Fix this
+            if len(packets) == 4:
+                break
+
+        # Pull out the data and pull out the MAC
+        packets = sorted(packets.items())
+
+        encrypted_data = b''.join([value for key, value in packets[:-2]])
+        mac_data = b''.join([value for key, value in packets[-2:]])
+
+        LOGGER.debug("Encrypted data: %s", encrypted_data)
+        LOGGER.debug("MAC: %s", mac_data)
+
+        if mac_data == utils.hash_message(key=b'key', message=encrypted_data):
             break
-
-    print(packets)
-
-    # Pull out the data and pull out the MAC
-    packets = sorted(packets.items())
-
-    encrypted_data = b''.join([value for key, value in packets[:-2]])
-    hash_data = b''.join([value for key, value in packets[-2:]])
-
-    print(encrypted_data)
-    print(hash_data)
-
-    if hash_data != utils.hash_message(key=b'key', message=encrypted_data):
-        print("MAC is different. The data is invalid")
-        # TODO: Try again
-        return
+        else:
+            LOGGER.warning("MAC is different -- the data is invalid. Retrying...")
 
     data = utils.decrypt_message(key=b'1234567894123456',
                                  message=encrypted_data)
-    print(data)
+    LOGGER.debug("Data: %s", data)
+    return data
+
+
+def get_wifi_information(data):
+    LOGGER.debug("Converting to SSID and password")
 
 
 if __name__ == '__main__':
@@ -66,4 +71,4 @@ if __name__ == '__main__':
     parser.add_argument('interface')
     args = parser.parse_args()
 
-    get_wifi_information(args.interface)
+    get_wifi_information(get_data(args.interface))
