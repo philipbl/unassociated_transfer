@@ -57,7 +57,7 @@ def get_data(interface: str, encryption_key: bytes, integrity_key: bytes) -> str
         packets = sorted(packets.items())
 
         iv_data = b''.join([value for key, value in packets[:2]])
-        global_sequence_data = b''.join([value for key, value in packets[2]])
+        global_sequence_data = b''.join([value for key, value in packets[2:3]])
         encrypted_data = b''.join([value for key, value in packets[3:-2]])
         mac_data = b''.join([value for key, value in packets[-2:]])
 
