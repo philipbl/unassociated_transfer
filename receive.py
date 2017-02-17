@@ -11,6 +11,19 @@ LOGGER = logging.getLogger(__name__)
 FILTER = "wlan[4] == 0x33 and wlan[5] == 0x33 and wlan[16] == 0xfe"
 
 
+def get_global_sequence():
+    with open(utils.CONFIG_FILE_NAME) as f:
+        config = json.load(f)
+        return config.get('global_sequence', 0)
+
+
+def set_global_sequence(seq):
+    with open(utils.CONFIG_FILE_NAME, 'w+') as f:
+        config = json.load(f)
+        config['global_sequence'] = seq
+        json.dump(config, f)
+
+
 def process_packet(packet):
     src = packet.wlan.sa
     dst = packet.wlan.da
@@ -73,11 +86,26 @@ def get_data(interface: str, encryption_key: bytes, integrity_key: bytes) -> str
         LOGGER.debug("Encrypted data: %s", encrypted_data)
         LOGGER.debug("MAC: %s", mac_data)
 
+        # Check the integrity of the message
         if mac_data != utils.hash_message(key=integrity_key,
                                           message=global_sequence_data + encrypted_data):
             LOGGER.warning("MAC is different -- the data is invalid. Retrying...")
             continue
 
+        # Make sure this is a new packet and not a replayed old one
+        global_sequence = struct.unpack(utils.GLOBAL_SEQUENCE_FORMAT,
+                                        global_sequence_data)
+        old_global_sequence = get_global_sequence()
+        if global_sequence <= old_global_sequence:
+            LOGGER.error("Received old global sequence number (%s <= %s)",
+                         global_sequence,
+                         old_global_sequence)
+            continue
+
+        # Update global sequence number
+        set_global_sequence(global_sequence)
+
+        # Decrypt data
         data = utils.decrypt_message(key=encryption_key,
                                      iv=iv_data,
                                      message=encrypted_data)
