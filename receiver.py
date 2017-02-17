@@ -16,14 +16,15 @@ def process_packet(packet):
     src = packet.wlan.sa
     dst = packet.wlan.da
 
-    sequence, *src_data = src.split(':')[1:]
+    header, *src_data = src.split(':')[1:]
     dst_data = dst.split(':')[2:]
 
     data = ''.join(src_data + dst_data)
     data = bytearray.fromhex(data)
 
-    last_packet = 0x0001 & sequence
-    sequence = int(sequence >> 1, base=16)
+    header = int(header, base=16)
+    last_packet = 0x0001 & header
+    sequence = header >> 1
 
     return sequence, last_packet, data
 
