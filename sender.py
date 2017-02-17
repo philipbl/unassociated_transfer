@@ -1,12 +1,19 @@
 import argparse
 from itertools import zip_longest
+import json
+import logging
 import sys
 import time
 
 from scapy.all import *
 
-SRC_MAC = "fe:{:02x}:{}:{}:{}:{}"
-DST_MAC = "33:33:{}:{}:{}:{}"
+import utils
+
+logging.basicConfig(level=logging.DEBUG)
+LOGGER = logging.getLogger(__name__)
+
+SRC_MAC = "fe:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}"
+DST_MAC = "33:33:{:02x}:{:02x}:{:02x}:{:02x}"
 
 
 def grouper(iterable, n, fillvalue=None):
@@ -16,19 +23,37 @@ def grouper(iterable, n, fillvalue=None):
     return zip_longest(*args, fillvalue=fillvalue)
 
 
-def send(data):
-    # Convert data to bytes
-    data_bytes = ["{:02x}".format(ord(c)) for c in data]
+def send(data: bytes, encryption_key: bytes, integrity_key: bytes) -> None:
+    encrypted_data = utils.encrypt_message(key=encryption_key,
+                                           message=data)
+    mac_data = utils.hash_message(key=integrity_key, message=encrypted_data)
 
-    print(data_bytes)
-    for i, group in enumerate(grouper(data_bytes, 8, "00")):
-        src = SRC_MAC.format(i, *group[:4])
-        dst = DST_MAC.format(*group[4:])
+    LOGGER.debug("Encrypted data: %s", encrypted_data)
+    LOGGER.debug("MAC: %s", mac_data)
 
-        packet = Ether(src=src, dst=dst)
-        packet.show()
-        sendp(packet)
-        time.sleep(.5)
+    all_data = encrypted_data + mac_data
+
+    assert len(all_data) % 8 == 0
+    total_packets = len(all_data) / 8
+
+    if total_packets > 127:
+        LOGGER.error("The data is too big and too many packets need to be sent.")
+        return
+
+    retries = 5
+    for retry in range(retries):
+        for i, group in enumerate(grouper(all_data, 8)):
+            sequence = (i << 1) + (0 if i != total_packets - 1 else 1)
+
+            src = SRC_MAC.format(sequence, *group[:4])
+            dst = DST_MAC.format(*group[4:])
+
+            LOGGER.debug("Sending packet: Ether(src=%s, dst=%s)", src, dst)
+            sendp(Ether(src=src, dst=dst))
+
+            time.sleep(.2)
+
+        time.sleep(5)
 
 
 if __name__ == '__main__':
@@ -37,9 +62,14 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    with open('config.json') as f:
+        config = json.load(f)
+
     if isinstance(args.data, str):
         data = args.data
     else:
         data = args.data.read()
 
-    send(data)
+    send(data.encode(),
+         config['encryption_key'].encode(),
+         config['integrity_key'].encode())
