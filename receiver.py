@@ -23,7 +23,7 @@ def process_packet(packet):
     data = bytearray.fromhex(data)
 
     header = int(header, base=16)
-    last_packet = 0x0001 & header
+    last_packet = 0x01 & header
     sequence = header >> 1
 
     return sequence, last_packet, data

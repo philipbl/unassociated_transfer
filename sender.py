@@ -44,7 +44,7 @@ def send(data: str) -> None:
     retries = 5
     for retry in range(retries):
         for i, group in enumerate(grouper(all_data, 8)):
-            sequence = i << 1 + 0 if i != total_packets - 1 else 1
+            sequence = (i << 1) + (0 if i != total_packets - 1 else 1)
 
             src = SRC_MAC.format(sequence, *group[:4])
             dst = DST_MAC.format(*group[4:])
