@@ -29,14 +29,17 @@ def send(data: bytes, encryption_key: bytes, integrity_key: bytes) -> None:
                      len(data))
         return
 
+    iv_data = utils.generate_iv()
     encrypted_data = utils.encrypt_message(key=encryption_key,
+                                           iv=iv_data,
                                            message=data)
     mac_data = utils.hash_message(key=integrity_key, message=encrypted_data)
 
+    LOGGER.debug("IV: %s", iv_data)
     LOGGER.debug("Encrypted data: %s", encrypted_data)
     LOGGER.debug("MAC: %s", mac_data)
 
-    all_data = encrypted_data + mac_data
+    all_data = iv_data + encrypted_data + mac_data
 
     assert len(all_data) % 8 == 0
     total_packets = len(all_data) / 8
