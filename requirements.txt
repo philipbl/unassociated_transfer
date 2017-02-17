@@ -1,2 +1,3 @@
+pycrypto==2.6.1
 pyshark==0.3.6.2
 scapy-python3==0.20
