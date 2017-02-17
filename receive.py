@@ -28,34 +28,41 @@ def process_packet(packet):
     return sequence, last_packet, data
 
 
-def get_data(interface: str, encryption_key: bytes, integrity_key: bytes) -> str:
+def get_packets(interface):
     capture = pyshark.LiveCapture(interface=interface,
                                   monitor_mode=True,
                                   capture_filter=FILTER)
+    packets = {}
+    num_packets = -1
 
-    while True:
-        packets = {}
-        num_packets = -1
-        for packet in capture.sniff_continuously():
-            sequence, last_packet, data = process_packet(packet)
+    for packet in capture.sniff_continuously():
+        sequence, last_packet, data = process_packet(packet)
 
-            LOGGER.debug("Sequence: %s", sequence)
-            LOGGER.debug("Last packet: %s", last_packet)
+        LOGGER.debug("Sequence: %s", sequence)
+        LOGGER.debug("Last packet: %s", last_packet)
 
-            if last_packet:
-                num_packets = sequence + 1
+        if last_packet:
+            num_packets = sequence + 1
 
-            if sequence not in packets:
-                LOGGER.debug("Received %s", sequence)
-                packets[sequence] = data
+        if sequence not in packets:
+            LOGGER.debug("Received %s", sequence)
+            packets[sequence] = data
 
-            LOGGER.debug("")
+        LOGGER.debug("")
 
-            if len(packets) == num_packets:
-                break
+        if len(packets) == num_packets:
+            yield packets
 
+            # Start over
+            packets = {}
+            num_packets = -1
+
+
+def get_data(interface: str, encryption_key: bytes, integrity_key: bytes) -> str:
+    for packets in get_packets(interface):
         packets = sorted(packets.items())
 
+        # Get all of the data from the packets
         iv_data = b''.join([value for key, value in packets[:2]])
         global_sequence_data = b''.join([value for key, value in packets[2:3]])
         encrypted_data = b''.join([value for key, value in packets[3:-2]])
@@ -66,17 +73,15 @@ def get_data(interface: str, encryption_key: bytes, integrity_key: bytes) -> str
         LOGGER.debug("Encrypted data: %s", encrypted_data)
         LOGGER.debug("MAC: %s", mac_data)
 
-        if mac_data == utils.hash_message(key=integrity_key,
+        if mac_data != utils.hash_message(key=integrity_key,
                                           message=global_sequence_data + encrypted_data):
-            break
-        else:
             LOGGER.warning("MAC is different -- the data is invalid. Retrying...")
+            continue
 
-    data = utils.decrypt_message(key=encryption_key,
-                                 iv=iv_data,
-                                 message=encrypted_data)
-    LOGGER.debug("Data: %s", data)
-    return data
+        data = utils.decrypt_message(key=encryption_key,
+                                     iv=iv_data,
+                                     message=encrypted_data)
+        return data
 
 
 if __name__ == '__main__':
