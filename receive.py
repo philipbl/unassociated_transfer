@@ -54,11 +54,13 @@ def get_data(interface: str, encryption_key: bytes, integrity_key: bytes) -> str
             if len(packets) == num_packets:
                 break
 
-        # Pull out the data and pull out the MAC
         packets = sorted(packets.items())
-        encrypted_data = b''.join([value for key, value in packets[:-2]])
+
+        iv_data = b''.join([value for key, value in packets[:2]])
+        encrypted_data = b''.join([value for key, value in packets[2:-2]])
         mac_data = b''.join([value for key, value in packets[-2:]])
 
+        LOGGER.debug("IV: %s", iv_data)
         LOGGER.debug("Encrypted data: %s", encrypted_data)
         LOGGER.debug("MAC: %s", mac_data)
 
@@ -69,6 +71,7 @@ def get_data(interface: str, encryption_key: bytes, integrity_key: bytes) -> str
             LOGGER.warning("MAC is different -- the data is invalid. Retrying...")
 
     data = utils.decrypt_message(key=encryption_key,
+                                 iv=iv_data,
                                  message=encrypted_data)
     LOGGER.debug("Data: %s", data)
     return data
