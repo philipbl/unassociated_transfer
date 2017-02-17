@@ -3,6 +3,8 @@ from Crypto.Cipher import AES
 from Crypto import Random
 
 GLOBAL_SEQUENCE_FORMAT = '!Q'
+CONFIG_FILE_NAME = 'config.json'
+
 
 def hash_message(key, message):
     return hmac.new(key, message).digest()

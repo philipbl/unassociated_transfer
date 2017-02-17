@@ -89,7 +89,7 @@ if __name__ == '__main__':
     parser.add_argument('interface')
     args = parser.parse_args()
 
-    with open('config.json') as f:
+    with open(utils.CONFIG_FILE_NAME) as f:
         config = json.load(f)
 
     data = get_data(args.interface,
