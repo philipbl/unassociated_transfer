@@ -2,6 +2,7 @@ import argparse
 from itertools import zip_longest
 import json
 import logging
+import struct
 import sys
 import time
 
@@ -30,7 +31,8 @@ def send(data: bytes, encryption_key: bytes, integrity_key: bytes) -> None:
         return
 
     iv_data = utils.generate_iv()
-    global_sequence_data = struct.pack('!Q', int(time.time()))
+    global_sequence_data = struct.pack(utils.GLOBAL_SEQUENCE_FORMAT,
+                                       int(time.time()))
     encrypted_data = utils.encrypt_message(key=encryption_key,
                                            iv=iv_data,
                                            message=data)
