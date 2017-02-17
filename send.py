@@ -24,6 +24,11 @@ def grouper(iterable, n, fillvalue=None):
 
 
 def send(data: bytes, encryption_key: bytes, integrity_key: bytes) -> None:
+    if len(data) % 16 != 0:
+        LOGGER.error("Length of data must be a multiple of 16. It is currently %s.",
+                     len(data))
+        return
+
     encrypted_data = utils.encrypt_message(key=encryption_key,
                                            message=data)
     mac_data = utils.hash_message(key=integrity_key, message=encrypted_data)
