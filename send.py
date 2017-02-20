@@ -9,6 +9,7 @@ try:
     from itertools import zip_longest
 except ImportError:
     from itertools import izip_longest
+    zip_longest = izip_longest
 
 from scapy.all import *
 
