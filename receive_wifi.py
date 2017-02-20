@@ -5,7 +5,7 @@ import logging
 from receive import get_data
 
 
-def main(interface: str) -> None:
+def main(interface):
     # Get keys
     with open('config.json') as f:
         config = json.load(f)

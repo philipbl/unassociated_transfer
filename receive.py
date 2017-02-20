@@ -32,7 +32,7 @@ def process_packet(packet):
     src = packet.wlan.sa
     dst = packet.wlan.da
 
-    header, *src_data = src.split(':')[1:]
+    header, src_data = src.split(':', 2)[1:]
     dst_data = dst.split(':')[2:]
 
     data = ''.join(src_data + dst_data)
@@ -75,7 +75,7 @@ def get_packets(interface):
             num_packets = -1
 
 
-def get_data(interface: str, encryption_key: bytes, integrity_key: bytes) -> str:
+def get_data(interface, encryption_key, integrity_key):
     for packets in get_packets(interface):
         packets = sorted(packets.items())
 

@@ -1,10 +1,14 @@
 import argparse
-from itertools import zip_longest
 import json
 import logging
 import struct
 import sys
 import time
+
+try:
+    from itertools import zip_longest
+except ImportError:
+    from itertools import izip_longest
 
 from scapy.all import *
 
@@ -24,7 +28,7 @@ def grouper(iterable, n, fillvalue=None):
     return zip_longest(*args, fillvalue=fillvalue)
 
 
-def send(data: bytes, encryption_key: bytes, integrity_key: bytes) -> None:
+def send(data, encryption_key, integrity_key):
     if len(data) % 16 != 0:
         LOGGER.error("Length of data must be a multiple of 16. It is currently %s.",
                      len(data))

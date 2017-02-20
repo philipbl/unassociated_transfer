@@ -5,7 +5,7 @@ import logging
 from send import send
 
 
-def main(ssid: str, password: str) -> None:
+def main(ssid, password):
     # Get keys
     with open('config.json') as f:
         config = json.load(f)
