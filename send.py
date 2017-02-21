@@ -44,6 +44,12 @@ def send(data, encryption_key, integrity_key):
     mac_data = utils.hash_message(key=integrity_key,
                                   message=global_sequence_data + encrypted_data)
 
+    # Convert from str to list of ints (bytearrays)
+    iv_data = list(bytearray(iv_data))
+    global_sequence_data = list(bytearray(global_sequence_data))
+    encrypted_data = list(bytearray(encrypted_data))
+    mac_data = list(bytearray(mac_data))
+
     LOGGER.debug("IV: %s", iv_data)
     LOGGER.debug("Global sequence number: %s", global_sequence_data)
     LOGGER.debug("Encrypted data: %s", encrypted_data)
