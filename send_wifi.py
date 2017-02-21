@@ -1,3 +1,4 @@
+from __future__ import generators, division, print_function, with_statement
 import argparse
 import json
 import logging
@@ -5,7 +6,7 @@ import logging
 from send import send
 
 
-def main(ssid: str, password: str) -> None:
+def main(ssid, password):
     # Get keys
     with open('config.json') as f:
         config = json.load(f)

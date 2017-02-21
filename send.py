@@ -1,10 +1,16 @@
+from __future__ import generators, division, print_function, with_statement
 import argparse
-from itertools import zip_longest
 import json
 import logging
 import struct
 import sys
 import time
+
+try:
+    from itertools import zip_longest
+except ImportError:
+    from itertools import izip_longest
+    zip_longest = izip_longest
 
 from scapy.all import *
 
@@ -24,7 +30,7 @@ def grouper(iterable, n, fillvalue=None):
     return zip_longest(*args, fillvalue=fillvalue)
 
 
-def send(data: bytes, encryption_key: bytes, integrity_key: bytes) -> None:
+def send(data, encryption_key, integrity_key):
     if len(data) % 16 != 0:
         LOGGER.error("Length of data must be a multiple of 16. It is currently %s.",
                      len(data))
@@ -38,6 +44,12 @@ def send(data: bytes, encryption_key: bytes, integrity_key: bytes) -> None:
                                            message=data)
     mac_data = utils.hash_message(key=integrity_key,
                                   message=global_sequence_data + encrypted_data)
+
+    # Convert from str to list of ints (bytearrays)
+    iv_data = list(bytearray(iv_data))
+    global_sequence_data = list(bytearray(global_sequence_data))
+    encrypted_data = list(bytearray(encrypted_data))
+    mac_data = list(bytearray(mac_data))
 
     LOGGER.debug("IV: %s", iv_data)
     LOGGER.debug("Global sequence number: %s", global_sequence_data)

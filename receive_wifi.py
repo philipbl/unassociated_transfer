@@ -1,3 +1,4 @@
+from __future__ import generators, division, print_function, with_statement
 import argparse
 import json
 import logging
@@ -5,7 +6,7 @@ import logging
 from receive import get_data
 
 
-def main(interface: str) -> None:
+def main(interface):
     # Get keys
     with open('config.json') as f:
         config = json.load(f)
