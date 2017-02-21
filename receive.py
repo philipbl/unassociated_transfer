@@ -1,6 +1,7 @@
 import argparse
 import json
 import logging
+import struct
 
 import pyshark
 import utils
@@ -18,9 +19,12 @@ def get_global_sequence():
 
 
 def set_global_sequence(seq):
-    with open(utils.CONFIG_FILE_NAME, 'w+') as f:
+    with open(utils.CONFIG_FILE_NAME, 'r') as f:
         config = json.load(f)
-        config['global_sequence'] = seq
+
+    config['global_sequence'] = seq
+
+    with open(utils.CONFIG_FILE_NAME, 'w') as f:
         json.dump(config, f)
 
 
@@ -93,8 +97,8 @@ def get_data(interface: str, encryption_key: bytes, integrity_key: bytes) -> str
             continue
 
         # Make sure this is a new packet and not a replayed old one
-        global_sequence = struct.unpack(utils.GLOBAL_SEQUENCE_FORMAT,
-                                        global_sequence_data)
+        global_sequence, = struct.unpack(utils.GLOBAL_SEQUENCE_FORMAT,
+                                         global_sequence_data)
         old_global_sequence = get_global_sequence()
         if global_sequence <= old_global_sequence:
             LOGGER.error("Received old global sequence number (%s <= %s)",
