@@ -36,7 +36,7 @@ def process_packet(packet):
     header, src_data = src.split(':', 2)[1:]
     dst_data = dst.split(':')[2:]
 
-    data = ''.join(src_data + dst_data)
+    data = ''.join(src_data.split(':') + dst_data)
     data = bytearray.fromhex(data)
 
     header = int(header, base=16)
@@ -81,15 +81,18 @@ def get_data(interface, encryption_key, integrity_key):
         packets = sorted(packets.items())
 
         # Get all of the data from the packets
-        iv_data = b''.join([value for key, value in packets[:2]])
-        global_sequence_data = b''.join([value for key, value in packets[2:3]])
-        encrypted_data = b''.join([value for key, value in packets[3:-2]])
-        mac_data = b''.join([value for key, value in packets[-2:]])
 
-        LOGGER.debug("IV: %s", iv_data)
-        LOGGER.debug("Global sequence number: %s", global_sequence_data)
-        LOGGER.debug("Encrypted data: %s", encrypted_data)
-        LOGGER.debug("MAC: %s", mac_data)
+        iv_data = packets[0][1] + packets[1][1]
+        global_sequence_data = packets[2][1]
+        encrypted_data = bytearray()
+        for key, value in packets[3:-2]:
+            encrypted_data.extend(value)
+        mac_data = packets[-2][1] + packets[-1][1]
+
+        LOGGER.debug("IV: %s", list(iv_data))
+        LOGGER.debug("Global sequence number: %s", list(global_sequence_data))
+        LOGGER.debug("Encrypted data: %s", list(encrypted_data))
+        LOGGER.debug("MAC: %s", list(mac_data))
 
         # Check the integrity of the message
         if mac_data != utils.hash_message(key=integrity_key,
@@ -112,8 +115,8 @@ def get_data(interface, encryption_key, integrity_key):
 
         # Decrypt data
         data = utils.decrypt_message(key=encryption_key,
-                                     iv=iv_data,
-                                     message=encrypted_data)
+                                     iv=bytes(iv_data),
+                                     message=bytes(encrypted_data))
         return data
 
 
