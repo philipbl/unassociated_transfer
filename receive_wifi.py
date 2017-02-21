@@ -1,3 +1,4 @@
+from __future__ import generators, division, print_function, with_statement
 import argparse
 import json
 import logging
