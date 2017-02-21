@@ -13,6 +13,7 @@ except ImportError:
     zip_longest = izip_longest
 
 from scapy.all import *
+from zfec.easyfec import Encoder
 
 import utils
 
@@ -46,23 +47,31 @@ def send(data, encryption_key, integrity_key):
                                   message=global_sequence_data + encrypted_data)
 
     # Convert from str to list of ints (bytearrays)
-    iv_data = list(bytearray(iv_data))
-    global_sequence_data = list(bytearray(global_sequence_data))
-    encrypted_data = list(bytearray(encrypted_data))
-    mac_data = list(bytearray(mac_data))
+    iv_data = bytearray(iv_data)
+    global_sequence_data = bytearray(global_sequence_data)
+    encrypted_data = bytearray(encrypted_data)
+    mac_data = bytearray(mac_data)
 
-    LOGGER.debug("IV: %s", iv_data)
-    LOGGER.debug("Global sequence number: %s", global_sequence_data)
-    LOGGER.debug("Encrypted data: %s", encrypted_data)
-    LOGGER.debug("MAC: %s", mac_data)
+    LOGGER.debug("IV: %s", list(iv_data))
+    LOGGER.debug("Global sequence number: %s", list(global_sequence_data))
+    LOGGER.debug("Encrypted data: %s", list(encrypted_data))
+    LOGGER.debug("MAC: %s", list(mac_data))
 
     all_data = iv_data + global_sequence_data + encrypted_data + mac_data
 
-    if len(all_data) % 8 != 0:
+    # Add FEC
+    encoder = Encoder(len(all_data) // 8, (len(all_data) // 8) * 2)
+    encoded_data = encoder.encode(all_data)
+
+    all_encoded_data = bytearray()
+    for x in encoded_data:
+        all_encoded_data.extend(x)
+
+    if len(all_encoded_data) % 8 != 0:
         LOGGER.error("All data is not divisible by 8!")
         return
 
-    total_packets = len(all_data) / 8
+    total_packets = len(all_encoded_data) / 8
 
     if total_packets >= 128:  # 7 bits long
         LOGGER.error("The data is too big and too many packets need to be sent.")
@@ -70,7 +79,7 @@ def send(data, encryption_key, integrity_key):
 
     retries = 5
     for retry in range(retries):
-        for sequence, group in enumerate(grouper(all_data, 8)):
+        for sequence, group in enumerate(grouper(all_encoded_data, 8)):
             header = (sequence << 1) + (0 if sequence != total_packets - 1 else 1)
 
             src = SRC_MAC.format(header, *group[:4])
