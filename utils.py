@@ -1,3 +1,4 @@
+import hashlib
 import hmac
 from Crypto.Cipher import AES
 from Crypto import Random
@@ -7,7 +8,7 @@ CONFIG_FILE_NAME = 'config.json'
 
 
 def hash_message(key, message):
-    return hmac.new(key, message).digest()
+    return hmac.new(key, message, hashlib.sha256).digest()
 
 
 def encrypt_message(key, iv, message):
