@@ -79,7 +79,7 @@ def send(data, encryption_key, integrity_key):
         return
 
     for sequence, group in enumerate(grouper(all_encoded_data, 8)):
-        header = sequence << 4 + total_packets
+        header = (sequence << 4) + total_packets
 
         src = SRC_MAC.format(header, *group[:4])
         dst = DST_MAC.format(*group[4:])
