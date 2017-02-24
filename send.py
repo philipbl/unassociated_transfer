@@ -1,12 +1,19 @@
+from __future__ import generators, division, print_function, with_statement
 import argparse
-from itertools import zip_longest
 import json
 import logging
 import struct
 import sys
 import time
 
+try:
+    from itertools import zip_longest
+except ImportError:
+    from itertools import izip_longest
+    zip_longest = izip_longest
+
 from scapy.all import *
+from zfec.easyfec import Encoder
 
 import utils
 
@@ -24,7 +31,7 @@ def grouper(iterable, n, fillvalue=None):
     return zip_longest(*args, fillvalue=fillvalue)
 
 
-def send(data: bytes, encryption_key: bytes, integrity_key: bytes) -> None:
+def send(data, encryption_key, integrity_key):
     if len(data) % 16 != 0:
         LOGGER.error("Length of data must be a multiple of 16. It is currently %s.",
                      len(data))
@@ -39,37 +46,48 @@ def send(data: bytes, encryption_key: bytes, integrity_key: bytes) -> None:
     mac_data = utils.hash_message(key=integrity_key,
                                   message=global_sequence_data + encrypted_data)
 
-    LOGGER.debug("IV: %s", iv_data)
-    LOGGER.debug("Global sequence number: %s", global_sequence_data)
-    LOGGER.debug("Encrypted data: %s", encrypted_data)
-    LOGGER.debug("MAC: %s", mac_data)
+    # Convert from str to list of ints (bytearrays)
+    iv_data = bytearray(iv_data)
+    global_sequence_data = bytearray(global_sequence_data)
+    encrypted_data = bytearray(encrypted_data)
+    mac_data = bytearray(mac_data)
+
+    LOGGER.debug("IV: %s", list(iv_data))
+    LOGGER.debug("Global sequence number: %s", list(global_sequence_data))
+    LOGGER.debug("Encrypted data: %s", list(encrypted_data))
+    LOGGER.debug("MAC: %s", list(mac_data))
 
     all_data = iv_data + global_sequence_data + encrypted_data + mac_data
 
-    if len(all_data) % 8 != 0:
+    # Add FEC
+    encoder = Encoder(len(all_data) // 8, (len(all_data) // 8) * 2)
+    encoded_data = encoder.encode(all_data)
+
+    all_encoded_data = bytearray()
+    for x in encoded_data:
+        all_encoded_data.extend(x)
+
+    if len(all_encoded_data) % 8 != 0:
         LOGGER.error("All data is not divisible by 8!")
         return
 
-    total_packets = len(all_data) / 8
+    total_packets = len(all_encoded_data) // 8
+    LOGGER.debug("Total packets: %s", total_packets)
 
-    if total_packets >= 128:  # 7 bits long
+    if total_packets >= 16:  # 4 bits long
         LOGGER.error("The data is too big and too many packets need to be sent.")
         return
 
-    retries = 5
-    for retry in range(retries):
-        for sequence, group in enumerate(grouper(all_data, 8)):
-            header = (sequence << 1) + (0 if sequence != total_packets - 1 else 1)
+    for sequence, group in enumerate(grouper(all_encoded_data, 8)):
+        header = (sequence << 4) + total_packets
 
-            src = SRC_MAC.format(header, *group[:4])
-            dst = DST_MAC.format(*group[4:])
+        src = SRC_MAC.format(header, *group[:4])
+        dst = DST_MAC.format(*group[4:])
 
-            LOGGER.debug("Sending packet: Ether(src=%s, dst=%s)", src, dst)
-            sendp(Ether(src=src, dst=dst))
+        LOGGER.debug("Sending packet: Ether(src=%s, dst=%s)", src, dst)
+        sendp(Ether(src=src, dst=dst))
 
-            time.sleep(.2)
-
-        time.sleep(5)
+        time.sleep(.2)
 
 
 if __name__ == '__main__':

@@ -1,9 +1,12 @@
+from __future__ import generators, division, print_function, with_statement
 import argparse
 import json
 import logging
 import struct
 
 import pyshark
+from zfec import Decoder
+
 import utils
 
 logging.basicConfig(level=logging.DEBUG)
@@ -32,20 +35,20 @@ def process_packet(packet):
     src = packet.wlan.sa
     dst = packet.wlan.da
 
-    header, *src_data = src.split(':')[1:]
+    header, src_data = src.split(':', 2)[1:]
     dst_data = dst.split(':')[2:]
 
-    data = ''.join(src_data + dst_data)
+    data = ''.join(src_data.split(':') + dst_data)
     data = bytearray.fromhex(data)
 
     header = int(header, base=16)
-    last_packet = 0x01 & header
-    sequence = header >> 1
+    total = 0x0F & header
+    sequence = header >> 4
 
-    return sequence, last_packet, data
+    return sequence, total, data
 
 
-def get_packets(interface):
+def get_packet(interface):
     capture = pyshark.LiveCapture(interface=interface,
                                   monitor_mode=True,
                                   capture_filter=FILTER)
@@ -53,42 +56,50 @@ def get_packets(interface):
     num_packets = -1
 
     for packet in capture.sniff_continuously():
-        sequence, last_packet, data = process_packet(packet)
+        sequence, total, data = process_packet(packet)
 
         LOGGER.debug("Sequence: %s", sequence)
-        LOGGER.debug("Last packet: %s", last_packet)
+        LOGGER.debug("Total: %s", total)
 
-        if last_packet:
-            num_packets = sequence + 1
-
-        if sequence not in packets:
-            LOGGER.debug("Received %s", sequence)
-            packets[sequence] = data
-
-        LOGGER.debug("")
-
-        if len(packets) == num_packets:
-            yield packets
-
-            # Start over
-            packets = {}
-            num_packets = -1
+        yield (sequence, total, data)
 
 
-def get_data(interface: str, encryption_key: bytes, integrity_key: bytes) -> str:
+def get_packets(interface):
+    total_packets = None
+    packets = []
+
+    for packet in get_packet(interface):
+        sequence, total, data = packet
+
+        if total_packets is None or total_packets != total:
+            total_packets = total
+            decoder = Decoder(total_packets // 2, total_packets)
+            packets = []  # Restart collecting
+
+        packets.append((data, sequence))
+
+        if len(packets) >= total_packets // 2:
+            # UnFEC packets
+            data = decoder.decode(*zip(*packets))
+            yield data
+            packets = []
+
+
+def get_data(interface, encryption_key, integrity_key):
     for packets in get_packets(interface):
-        packets = sorted(packets.items())
 
         # Get all of the data from the packets
-        iv_data = b''.join([value for key, value in packets[:2]])
-        global_sequence_data = b''.join([value for key, value in packets[2:3]])
-        encrypted_data = b''.join([value for key, value in packets[3:-2]])
-        mac_data = b''.join([value for key, value in packets[-2:]])
+        iv_data = packets[0] + packets[1]
+        global_sequence_data = packets[2]
+        encrypted_data = bytearray()
+        for value in packets[3:-2]:
+            encrypted_data.extend(value)
+        mac_data = packets[-2] + packets[-1]
 
-        LOGGER.debug("IV: %s", iv_data)
-        LOGGER.debug("Global sequence number: %s", global_sequence_data)
-        LOGGER.debug("Encrypted data: %s", encrypted_data)
-        LOGGER.debug("MAC: %s", mac_data)
+        LOGGER.debug("IV: %s", list(iv_data))
+        LOGGER.debug("Global sequence number: %s", list(global_sequence_data))
+        LOGGER.debug("Encrypted data: %s", list(encrypted_data))
+        LOGGER.debug("MAC: %s", list(mac_data))
 
         # Check the integrity of the message
         if mac_data != utils.hash_message(key=integrity_key,
@@ -111,8 +122,8 @@ def get_data(interface: str, encryption_key: bytes, integrity_key: bytes) -> str
 
         # Decrypt data
         data = utils.decrypt_message(key=encryption_key,
-                                     iv=iv_data,
-                                     message=encrypted_data)
+                                     iv=bytes(iv_data),
+                                     message=bytes(encrypted_data))
         return data
 
 

@@ -1,2 +1,4 @@
+https://github.com/tahoe-lafs/zfec/archive/master.zip
 pycrypto==2.6.1
-scapy-python3==0.20
+pyshark==0.3.6.2
+scapy==2.3.3
