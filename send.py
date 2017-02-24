@@ -72,25 +72,21 @@ def send(data, encryption_key, integrity_key):
         return
 
     total_packets = len(all_encoded_data) // 8
+    LOGGER.debug("Total packets: %s", total_packets)
 
     if total_packets >= 16:  # 4 bits long
         LOGGER.error("The data is too big and too many packets need to be sent.")
         return
 
-    retries = 5
-    for retry in range(retries):
-        for sequence, group in enumerate(grouper(all_encoded_data, 8)):
-            header = sequence << 4 + total_packets
+    for sequence, group in enumerate(grouper(all_encoded_data, 8)):
+        header = sequence << 4 + total_packets
 
-            src = SRC_MAC.format(header, *group[:4])
-            dst = DST_MAC.format(*group[4:])
+        src = SRC_MAC.format(header, *group[:4])
+        dst = DST_MAC.format(*group[4:])
 
-            LOGGER.debug("Sending packet: Ether(src=%s, dst=%s)", src, dst)
-            sendp(Ether(src=src, dst=dst))
+        LOGGER.debug("Sending packet: Ether(src=%s, dst=%s)", src, dst)
 
-            time.sleep(.2)
-
-        time.sleep(5)
+        time.sleep(.2)
 
 
 if __name__ == '__main__':

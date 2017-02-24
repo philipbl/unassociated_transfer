@@ -5,7 +5,7 @@ import logging
 import struct
 
 import pyshark
-from zfec.easyfec import Decoder
+from zfec import Decoder
 
 import utils
 
@@ -64,7 +64,7 @@ def get_packet(interface):
         yield (sequence, total, data)
 
 
-def get_packets(interface, encryption_key, integrity_key):
+def get_packets(interface):
     total_packets = None
     packets = []
 
@@ -72,28 +72,29 @@ def get_packets(interface, encryption_key, integrity_key):
         sequence, total, data = packet
 
         if total_packets is None or total_packets != total:
+            total_packets = total
             decoder = Decoder(total_packets // 2, total_packets)
             packets = []  # Restart collecting
 
-        packets.append((sequence, packet))
+        packets.append((data, sequence))
 
-        if len(packets) == total_packets // 2:
+        if len(packets) >= total_packets // 2:
             # UnFEC packets
-            data = decoder.decode(*zip(*packets), padlen=0)
+            data = decoder.decode(*zip(*packets))
             yield data
             packets = []
 
 
 def get_data(interface, encryption_key, integrity_key):
-    for data in get_packets(interface):
+    for packets in get_packets(interface):
 
         # Get all of the data from the packets
-        iv_data = packets[0][1] + packets[1][1]
-        global_sequence_data = packets[2][1]
+        iv_data = packets[0] + packets[1]
+        global_sequence_data = packets[2]
         encrypted_data = bytearray()
-        for key, value in packets[3:-2]:
+        for value in packets[3:-2]:
             encrypted_data.extend(value)
-        mac_data = packets[-2][1] + packets[-1][1]
+        mac_data = packets[-2] + packets[-1]
 
         LOGGER.debug("IV: %s", list(iv_data))
         LOGGER.debug("Global sequence number: %s", list(global_sequence_data))
