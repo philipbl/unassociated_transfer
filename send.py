@@ -85,6 +85,7 @@ def send(data, encryption_key, integrity_key):
         dst = DST_MAC.format(*group[4:])
 
         LOGGER.debug("Sending packet: Ether(src=%s, dst=%s)", src, dst)
+        sendp(Ether(src=src, dst=dst))
 
         time.sleep(.2)
 
