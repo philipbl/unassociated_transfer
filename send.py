@@ -71,16 +71,16 @@ def send(data, encryption_key, integrity_key):
         LOGGER.error("All data is not divisible by 8!")
         return
 
-    total_packets = len(all_encoded_data) / 8
+    total_packets = len(all_encoded_data) // 8
 
-    if total_packets >= 128:  # 7 bits long
+    if total_packets >= 16:  # 4 bits long
         LOGGER.error("The data is too big and too many packets need to be sent.")
         return
 
     retries = 5
     for retry in range(retries):
         for sequence, group in enumerate(grouper(all_encoded_data, 8)):
-            header = (sequence << 1) + (0 if sequence != total_packets - 1 else 1)
+            header = sequence << 4 + total_packets
 
             src = SRC_MAC.format(header, *group[:4])
             dst = DST_MAC.format(*group[4:])
