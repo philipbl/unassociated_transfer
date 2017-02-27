@@ -1,5 +1,6 @@
 from __future__ import generators, division, print_function, with_statement
 import argparse
+from collections import namedtuple
 import json
 import logging
 import struct
@@ -13,6 +14,10 @@ logging.basicConfig(level=logging.DEBUG)
 LOGGER = logging.getLogger(__name__)
 
 FILTER = "wlan[4] == 0x33 and wlan[5] == 0x33 and wlan[16] == 0xfe"
+
+Packet = namedtuple('Packet',
+                    ['home_id', 'send_flag', 'possible_loss',
+                     'total_packets', 'sequence', 'data'])
 
 
 def get_global_sequence():
@@ -35,17 +40,26 @@ def process_packet(packet):
     src = packet.wlan.sa
     dst = packet.wlan.da
 
-    header, src_data = src.split(':', 2)[1:]
+    # hh:hh:hh:xx:xx:xx
+    header, src_data = src.split(':')[:2], src.split(':')[2:]
+    # 33:33:xx:xx:xx:xx
     dst_data = dst.split(':')[2:]
 
-    data = ''.join(src_data.split(':') + dst_data)
+    data = ''.join(src_data + dst_data)
     data = bytearray.fromhex(data)
 
     header = int(header, base=16)
-    total = 0x0F & header
-    sequence = header >> 4
 
-    return sequence, total, data
+    # iiii ii10 fnnt tttt tsss ssss
+    home_id = (header >> 18)
+    send_flag = (header >> 15) & 0b1
+    possible_loss_index = (header >> 13) & 0b11
+    total = ((header >> 7) << 1) & 0b1111111
+    sequence = header & 0b1111111
+
+    possible_loss = utils.FEC_LOSS[possible_loss_index]
+
+    return Packet(home_id, send_flag, possible_loss, total, sequence, data)
 
 
 def get_packet(interface):
@@ -55,11 +69,11 @@ def get_packet(interface):
     packets = {}
     num_packets = -1
 
-    for packet in capture.sniff_continuously():
-        sequence, total, data = process_packet(packet)
+    for p in capture.sniff_continuously():
+        packet = process_packet(p)
 
-        LOGGER.debug("Sequence: %s", sequence)
-        LOGGER.debug("Total: %s", total)
+        LOGGER.debug("Sequence: %s", packet.sequence)
+        LOGGER.debug("Total: %s", packet.total)
 
         yield (sequence, total, data)
 
