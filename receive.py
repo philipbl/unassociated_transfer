@@ -17,7 +17,7 @@ LOGGER = logging.getLogger(__name__)
 FILTER = "wlan[4] == 0x33 and wlan[5] == 0x33 and wlan[16] == 0x{:02x}"
 
 Packet = namedtuple('Packet',
-                    ['home_id', 'send_flag', 'packets_needed',
+                    ['id', 'send_flag', 'packets_needed',
                      'total', 'sequence', 'data'])
 
 
@@ -53,7 +53,7 @@ def process_packets(packets):
         header = int(''.join(header), base=16)
 
         # iiii ii10 fnnt tttt tsss ssss
-        home_id = (header >> 18)
+        id_ = (header >> 18)
         send_flag = (header >> 15) & 0b1
         possible_loss_index = (header >> 13) & 0b11
         total = ((header >> 7) << 1) & 0b1111111
@@ -66,7 +66,7 @@ def process_packets(packets):
             LOGGER.error("packets_needed must be an integer: %s", packets_needed)
         packets_needed = int(packets_needed)
 
-        yield Packet(home_id=home_id,
+        yield Packet(id=id_,
                      send_flag=send_flag,
                      total=total,
                      packets_needed=packets_needed,
@@ -74,7 +74,7 @@ def process_packets(packets):
                      data=data)
 
 
-def get_packets(capture_generator, home_id):
+def get_packets(capture_generator, id_):
     captured_packets = process_packets(capture_generator)
     packet = next(captured_packets)
     LOGGER.debug("Received packet: %s", packet)
@@ -86,9 +86,9 @@ def get_packets(capture_generator, home_id):
         # This probably isn't necessary because we are filtering out all
         # packets using tshark, but in case the filter changes, it is good
         # to check.
-        if packet.home_id != home_id:
+        if packet.id != id_:
             LOGGER.warning("Received packet with unknown home ID: %s",
-                           packet.home_id)
+                           packet.id)
             continue
 
         # Make sure these packets are coming from the right series of packets
@@ -133,11 +133,11 @@ def get_message(packet_generator):
         yield all_data
 
 
-def receive(interface, encryption_key, integrity_key, home_id=0x3F):
+def receive(interface, encryption_key, integrity_key, id_=0x3F):
     capture = pyshark.LiveCapture(interface=interface,
                                   monitor_mode=True,
-                                  capture_filter=FILTER.format((home_id << 2) + 2))
-    packets = get_packets(capture.sniff_continuously(), home_id)
+                                  capture_filter=FILTER.format((id_ << 2) + 2))
+    packets = get_packets(capture.sniff_continuously(), id_)
     messages = get_message(packets)
 
     for message in messages:
@@ -189,5 +189,5 @@ if __name__ == '__main__':
     data = receive(args.interface,
                    config['encryption_key'].encode(),
                    config['integrity_key'].encode(),
-                   int(config['home_id']))
+                   int(config['id']))
     print(data)
