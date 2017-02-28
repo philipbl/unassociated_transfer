@@ -6,9 +6,9 @@ from Crypto import Random
 GLOBAL_SEQUENCE_FORMAT = '!Q'
 CONFIG_FILE_NAME = 'config.json'
 TOTAL_DATA = 7
-HOME_ID = 0b111111
 
 FEC_LOSS = [.5, .25, .1, .05]
+
 
 def hash_message(key, message):
     return hmac.new(key, message, hashlib.sha256).digest()

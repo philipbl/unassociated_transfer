@@ -14,10 +14,10 @@ import utils
 logging.basicConfig(level=logging.DEBUG)
 LOGGER = logging.getLogger(__name__)
 
-FILTER = "wlan[4] == 0x33 and wlan[5] == 0x33 and wlan[16] == 0xfe"
+FILTER = "wlan[4] == 0x33 and wlan[5] == 0x33 and wlan[16] == 0x{:02x}"
 
 Packet = namedtuple('Packet',
-                    ['home_id', 'send_flag', 'packets_needed',
+                    ['id', 'send_flag', 'packets_needed',
                      'total', 'sequence', 'data'])
 
 
@@ -53,7 +53,7 @@ def process_packets(packets):
         header = int(''.join(header), base=16)
 
         # iiii ii10 fnnt tttt tsss ssss
-        home_id = (header >> 18)
+        id_ = (header >> 18)
         send_flag = (header >> 15) & 0b1
         possible_loss_index = (header >> 13) & 0b11
         total = ((header >> 7) << 1) & 0b1111111
@@ -66,29 +66,29 @@ def process_packets(packets):
             LOGGER.error("packets_needed must be an integer: %s", packets_needed)
         packets_needed = int(packets_needed)
 
-        yield Packet(home_id=home_id, 
-                     send_flag=send_flag, 
-                     total=total, 
+        yield Packet(id=id_,
+                     send_flag=send_flag,
+                     total=total,
                      packets_needed=packets_needed,
-                     sequence=sequence, 
+                     sequence=sequence,
                      data=data)
 
 
-def get_packets(interface):
-    capture = pyshark.LiveCapture(interface=interface,
-                                  monitor_mode=True,
-                                  capture_filter=FILTER)
-    captured_packets = process_packets(capture.sniff_continuously())
+def get_packets(capture_generator, id_):
+    captured_packets = process_packets(capture_generator)
     packet = next(captured_packets)
     LOGGER.debug("Received packet: %s", packet)
     packets = [packet]
 
     for packet in captured_packets:
 
-        # Make sure this is a packet we want to receive
-        if packet.home_id != utils.HOME_ID:
+        # Make sure this is a packet we want to receive.
+        # This probably isn't necessary because we are filtering out all
+        # packets using tshark, but in case the filter changes, it is good
+        # to check.
+        if packet.id != id_:
             LOGGER.warning("Received packet with unknown home ID: %s",
-                           packet.home_id)
+                           packet.id)
             continue
 
         # Make sure these packets are coming from the right series of packets
@@ -100,14 +100,14 @@ def get_packets(interface):
 
         LOGGER.debug("Received packet: %s", packet)
         packets.append(packet)
-        
+
         if len(packets) == packet.packets_needed:
             LOGGER.debug("Received enough packets")
             yield packets
 
 
-def get_message(interface):
-    for packets in get_packets(interface):
+def get_message(packet_generator):
+    for packets in packet_generator:
         m = packets[0].total
         k = packets[0].packets_needed
         packets = [(packet.data, packet.sequence) for packet in packets]
@@ -133,9 +133,14 @@ def get_message(interface):
         yield all_data
 
 
-def get_data(interface, encryption_key, integrity_key):
-    for message in get_message(interface):
+def receive(interface, encryption_key, integrity_key, id_=0x3F):
+    capture = pyshark.LiveCapture(interface=interface,
+                                  monitor_mode=True,
+                                  capture_filter=FILTER.format((id_ << 2) + 2))
+    packets = get_packets(capture.sniff_continuously(), id_)
+    messages = get_message(packets)
 
+    for message in messages:
         # Get all of the data from the packets
         iv_data = message[:16]
         global_sequence_data = message[16:24]
@@ -181,7 +186,8 @@ if __name__ == '__main__':
     with open(utils.CONFIG_FILE_NAME) as f:
         config = json.load(f)
 
-    data = get_data(args.interface,
-                    config['encryption_key'].encode(),
-                    config['integrity_key'].encode())
+    data = receive(args.interface,
+                   config['encryption_key'].encode(),
+                   config['integrity_key'].encode(),
+                   int(config['id']))
     print(data)
