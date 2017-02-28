@@ -74,7 +74,7 @@ def process_packets(packets):
                      data=data)
 
 
-def get_packets(capture_generator):
+def get_packets(capture_generator, home_id):
     captured_packets = process_packets(capture_generator)
     packet = next(captured_packets)
     LOGGER.debug("Received packet: %s", packet)
@@ -137,7 +137,7 @@ def receive(interface, encryption_key, integrity_key, home_id=0x3F):
     capture = pyshark.LiveCapture(interface=interface,
                                   monitor_mode=True,
                                   capture_filter=FILTER.format((home_id << 2) + 2))
-    packets = get_packets(capture.sniff_continuously())
+    packets = get_packets(capture.sniff_continuously(), home_id)
     messages = get_message(packets)
 
     for message in messages:
