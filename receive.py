@@ -14,7 +14,7 @@ import utils
 logging.basicConfig(level=logging.DEBUG)
 LOGGER = logging.getLogger(__name__)
 
-FILTER = "wlan[4] == 0x33 and wlan[5] == 0x33 and wlan[16] == 0xfe"
+FILTER = "wlan[4] == 0x33 and wlan[5] == 0x33 and wlan[16] == 0x{:02x}"
 
 Packet = namedtuple('Packet',
                     ['home_id', 'send_flag', 'packets_needed',
@@ -74,18 +74,18 @@ def process_packets(packets):
                      data=data)
 
 
-def get_packets(interface, home_id):
-    capture = pyshark.LiveCapture(interface=interface,
-                                  monitor_mode=True,
-                                  capture_filter=FILTER)
-    captured_packets = process_packets(capture.sniff_continuously())
+def get_packets(capture_generator):
+    captured_packets = process_packets(capture_generator)
     packet = next(captured_packets)
     LOGGER.debug("Received packet: %s", packet)
     packets = [packet]
 
     for packet in captured_packets:
 
-        # Make sure this is a packet we want to receive
+        # Make sure this is a packet we want to receive.
+        # This probably isn't necessary because we are filtering out all
+        # packets using tshark, but in case the filter changes, it is good
+        # to check.
         if packet.home_id != home_id:
             LOGGER.warning("Received packet with unknown home ID: %s",
                            packet.home_id)
@@ -106,8 +106,8 @@ def get_packets(interface, home_id):
             yield packets
 
 
-def get_message(interface, home_id):
-    for packets in get_packets(interface, home_id):
+def get_message(packet_generator):
+    for packets in packet_generator:
         m = packets[0].total
         k = packets[0].packets_needed
         packets = [(packet.data, packet.sequence) for packet in packets]
@@ -134,8 +134,13 @@ def get_message(interface, home_id):
 
 
 def receive(interface, encryption_key, integrity_key, home_id=0x3F):
-    for message in get_message(interface, home_id):
+    capture = pyshark.LiveCapture(interface=interface,
+                                  monitor_mode=True,
+                                  capture_filter=FILTER.format((home_id << 2) + 2))
+    packets = get_packets(capture.sniff_continuously())
+    messages = get_message(packets)
 
+    for message in messages:
         # Get all of the data from the packets
         iv_data = message[:16]
         global_sequence_data = message[16:24]
@@ -183,5 +188,6 @@ if __name__ == '__main__':
 
     data = receive(args.interface,
                    config['encryption_key'].encode(),
-                   config['integrity_key'].encode())
+                   config['integrity_key'].encode(),
+                   int(config['home_id']))
     print(data)

@@ -150,4 +150,5 @@ if __name__ == '__main__':
 
     send(data.encode(),
          config['encryption_key'].encode(),
-         config['integrity_key'].encode())
+         config['integrity_key'].encode(),
+         home_id=int(config['home_id']))
