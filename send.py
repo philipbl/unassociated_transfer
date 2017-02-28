@@ -2,6 +2,7 @@ from __future__ import generators, division, print_function, with_statement
 import argparse
 import json
 import logging
+import math
 import struct
 import sys
 import time
@@ -20,7 +21,7 @@ import utils
 logging.basicConfig(level=logging.DEBUG)
 LOGGER = logging.getLogger(__name__)
 
-SRC_MAC = "fe:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}"
+SRC_MAC = "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}"
 DST_MAC = "33:33:{:02x}:{:02x}:{:02x}:{:02x}"
 
 
@@ -31,10 +32,29 @@ def grouper(iterable, n, fillvalue=None):
     return zip_longest(*args, fillvalue=fillvalue)
 
 
-def send(data, encryption_key, integrity_key):
+def send(data, encryption_key, integrity_key, send_flag=0, possible_loss=.5):
     if len(data) % 16 != 0:
         LOGGER.error("Length of data must be a multiple of 16. It is currently %s.",
                      len(data))
+        return
+
+    if int(send_flag) >= 2: # 1 bit long
+        LOGGER.error("Send flag is too large: %s. It must be less than 2.",
+                     send_flag)
+        return
+
+    if possible_loss not in utils.FEC_LOSS:
+        LOGGER.error("'possible_loss' must be one of these values: %s", utils.fec_loss)
+        return
+
+    if len(utils.FEC_LOSS) > 4:
+        LOGGER.error("FEC_LOSS list is too large: %s. It must be only 4 elements.",
+                     len(utils.FEC_LOSS))
+        return
+
+    if utils.HOME_ID >= 64:  # 6 bits long
+        LOGGER.error("Home ID is too large: %s. It must be less than 64.",
+                     utils.HOME_ID)
         return
 
     iv_data = utils.generate_iv()
@@ -59,30 +79,54 @@ def send(data, encryption_key, integrity_key):
 
     all_data = iv_data + global_sequence_data + encrypted_data + mac_data
 
+    # Add padding
+    if len(all_data) % utils.TOTAL_DATA != 0:
+        padding = utils.TOTAL_DATA - (len(all_data) % utils.TOTAL_DATA)
+        all_data.extend(['\x00'] * padding)
+
     # Add FEC
-    encoder = Encoder(len(all_data) // 8, (len(all_data) // 8) * 2)
+    k = len(all_data) // utils.TOTAL_DATA
+    m = int(math.ceil(round(k * (1 / (1 - possible_loss))) / 2) * 2)
+    encoder = Encoder(k, m)
     encoded_data = encoder.encode(all_data)
+    LOGGER.debug("Encoding data: k=%s, m=%s", k, m)
 
     all_encoded_data = bytearray()
     for x in encoded_data:
         all_encoded_data.extend(x)
 
-    if len(all_encoded_data) % 8 != 0:
-        LOGGER.error("All data is not divisible by 8!")
+    if len(all_data) % utils.TOTAL_DATA != 0:
+        LOGGER.error("Total data must be divisible by %s. It's size is %s",
+                     utils.TOTAL_DATA, len(all_data))
         return
 
-    total_packets = len(all_encoded_data) // 8
+    total_packets = len(all_encoded_data) // utils.TOTAL_DATA
     LOGGER.debug("Total packets: %s", total_packets)
 
-    if total_packets >= 16:  # 4 bits long
+    if total_packets % 2 != 0:
+        LOGGER.error("Total number of packets must be even")
+        return
+
+    if total_packets >= 128:  # 7 bits long
         LOGGER.error("The data is too big and too many packets need to be sent.")
         return
 
-    for sequence, group in enumerate(grouper(all_encoded_data, 8)):
-        header = (sequence << 4) + total_packets
+    # iiii ii10 fnnt tttt t000 0000
+    header = (utils.HOME_ID << 18) + \
+             (0b10 << 16) + \
+             (int(send_flag) << 15) + \
+             (utils.FEC_LOSS.index(possible_loss) << 13) + \
+             ((total_packets >> 1) << 7)
 
-        src = SRC_MAC.format(header, *group[:4])
-        dst = DST_MAC.format(*group[4:])
+    for sequence, group in enumerate(grouper(all_encoded_data, utils.TOTAL_DATA)):
+        # iiii ii10 fnnt tttt tsss ssss
+        packet_header = header + sequence
+
+        src = SRC_MAC.format((packet_header & 0xFF0000) >> 16,
+                             (packet_header & 0x00FF00) >> 8,
+                             (packet_header & 0x0000FF),
+                             *group[:3])
+        dst = DST_MAC.format(*group[3:])
 
         LOGGER.debug("Sending packet: Ether(src=%s, dst=%s)", src, dst)
         sendp(Ether(src=src, dst=dst))
