@@ -94,6 +94,7 @@ def get_packets(interface):
         # Make sure these packets are coming from the right series of packets
         if packet.send_flag != packets[-1].send_flag:
             # Clear out all of the previously collected packets
+            LOGGER.debug("Different send_flag, clearing old data")
             packets = [packet]
             continue
 
@@ -117,6 +118,7 @@ def get_message(interface):
         decoder = Decoder(k, m)
         LOGGER.debug("Encoding data: k=%s, m=%s", k, m)
         data = decoder.decode(*zip(*packets))
+        data = map(bytearray, data)
 
         # Remove padding
         last_packet = list(reversed(list(dropwhile(lambda x: x == 0, reversed(data[-1])))))
