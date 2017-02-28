@@ -66,11 +66,11 @@ def process_packets(packets):
             LOGGER.error("packets_needed must be an integer: %s", packets_needed)
         packets_needed = int(packets_needed)
 
-        yield Packet(home_id=home_id, 
-                     send_flag=send_flag, 
-                     total=total, 
+        yield Packet(home_id=home_id,
+                     send_flag=send_flag,
+                     total=total,
                      packets_needed=packets_needed,
-                     sequence=sequence, 
+                     sequence=sequence,
                      data=data)
 
 
@@ -100,7 +100,7 @@ def get_packets(interface):
 
         LOGGER.debug("Received packet: %s", packet)
         packets.append(packet)
-        
+
         if len(packets) == packet.packets_needed:
             LOGGER.debug("Received enough packets")
             yield packets
@@ -133,7 +133,7 @@ def get_message(interface):
         yield all_data
 
 
-def get_data(interface, encryption_key, integrity_key):
+def receive(interface, encryption_key, integrity_key):
     for message in get_message(interface):
 
         # Get all of the data from the packets
@@ -181,7 +181,7 @@ if __name__ == '__main__':
     with open(utils.CONFIG_FILE_NAME) as f:
         config = json.load(f)
 
-    data = get_data(args.interface,
-                    config['encryption_key'].encode(),
-                    config['integrity_key'].encode())
+    data = receive(args.interface,
+                   config['encryption_key'].encode(),
+                   config['integrity_key'].encode())
     print(data)
