@@ -32,7 +32,7 @@ def grouper(iterable, n, fillvalue=None):
     return zip_longest(*args, fillvalue=fillvalue)
 
 
-def send(data, encryption_key, integrity_key, send_flag=False, possible_loss=.5):
+def send(data, encryption_key, integrity_key, send_flag=0, possible_loss=.5):
     if len(data) % 16 != 0:
         LOGGER.error("Length of data must be a multiple of 16. It is currently %s.",
                      len(data))
@@ -122,9 +122,9 @@ def send(data, encryption_key, integrity_key, send_flag=False, possible_loss=.5)
         # iiii ii10 fnnt tttt tsss ssss
         packet_header = header + sequence
 
-        src = SRC_MAC.format((header & 0xFF0000) >> 16,
-                             (header & 0x00FF00) >> 8,
-                             header & 0x0000FF,
+        src = SRC_MAC.format((packet_header & 0xFF0000) >> 16,
+                             (packet_header & 0x00FF00) >> 8,
+                             (packet_header & 0x0000FF),
                              *group[:3])
         dst = DST_MAC.format(*group[3:])
 
