@@ -107,18 +107,19 @@ def get_packets(interface):
 
 
 def get_message(interface):
-    total_packets = None
-    packets = []
-
     for packets in get_packets(interface):
         m = packets[0].total
         k = packets[0].packets_needed
         packets = [(packet.data, packet.sequence) for packet in packets]
 
-        decoder = Decoder(k, m)
-        LOGGER.debug("Encoding data: k=%s, m=%s", k, m)
-        data = decoder.decode(*zip(*packets))
-        data = map(bytearray, data)
+        try:
+            decoder = Decoder(k, m)
+            LOGGER.debug("Encoding data: k=%s, m=%s", k, m)
+            data = decoder.decode(*zip(*packets))
+            data = map(bytearray, data)
+        except Exception:
+            LOGGER.exception("Unable to decode packets")
+            continue
 
         # Remove padding
         last_packet = list(reversed(list(dropwhile(lambda x: x == 0, reversed(data[-1])))))
