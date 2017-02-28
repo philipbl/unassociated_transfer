@@ -74,7 +74,7 @@ def process_packets(packets):
                      data=data)
 
 
-def get_packets(interface):
+def get_packets(interface, home_id):
     capture = pyshark.LiveCapture(interface=interface,
                                   monitor_mode=True,
                                   capture_filter=FILTER)
@@ -86,7 +86,7 @@ def get_packets(interface):
     for packet in captured_packets:
 
         # Make sure this is a packet we want to receive
-        if packet.home_id != utils.HOME_ID:
+        if packet.home_id != home_id:
             LOGGER.warning("Received packet with unknown home ID: %s",
                            packet.home_id)
             continue
@@ -106,8 +106,8 @@ def get_packets(interface):
             yield packets
 
 
-def get_message(interface):
-    for packets in get_packets(interface):
+def get_message(interface, home_id):
+    for packets in get_packets(interface, home_id):
         m = packets[0].total
         k = packets[0].packets_needed
         packets = [(packet.data, packet.sequence) for packet in packets]
@@ -133,8 +133,8 @@ def get_message(interface):
         yield all_data
 
 
-def receive(interface, encryption_key, integrity_key):
-    for message in get_message(interface):
+def receive(interface, encryption_key, integrity_key, home_id=0x3F):
+    for message in get_message(interface, home_id):
 
         # Get all of the data from the packets
         iv_data = message[:16]

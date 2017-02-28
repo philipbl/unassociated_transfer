@@ -32,7 +32,7 @@ def grouper(iterable, n, fillvalue=None):
     return zip_longest(*args, fillvalue=fillvalue)
 
 
-def send(data, encryption_key, integrity_key, send_flag=0, possible_loss=.5):
+def send(data, encryption_key, integrity_key, send_flag=0, home_id=0x3f, possible_loss=.5):
     if len(data) % 16 != 0:
         LOGGER.error("Length of data must be a multiple of 16. It is currently %s.",
                      len(data))
@@ -52,9 +52,9 @@ def send(data, encryption_key, integrity_key, send_flag=0, possible_loss=.5):
                      len(utils.FEC_LOSS))
         return
 
-    if utils.HOME_ID >= 64:  # 6 bits long
-        LOGGER.error("Home ID is too large: %s. It must be less than 64.",
-                     utils.HOME_ID)
+    if home_id >= 64:  # 6 bits long
+        LOGGER.error("home_id is too large: %s. It must be less than 64.",
+                     home_id)
         return
 
     iv_data = utils.generate_iv()
@@ -112,7 +112,7 @@ def send(data, encryption_key, integrity_key, send_flag=0, possible_loss=.5):
         return
 
     # iiii ii10 fnnt tttt t000 0000
-    header = (utils.HOME_ID << 18) + \
+    header = (home_id << 18) + \
              (0b10 << 16) + \
              (int(send_flag) << 15) + \
              (utils.FEC_LOSS.index(possible_loss) << 13) + \
