@@ -3,7 +3,7 @@ import argparse
 import json
 import logging
 
-from receive import get_data
+from receive import receive
 
 
 def main(interface):
@@ -12,17 +12,14 @@ def main(interface):
         config = json.load(f)
 
     # Get data
-    data = get_data(args.interface,
-                    config['encryption_key'].encode(),
-                    config['integrity_key'].encode())
+    data = receive(args.interface,
+                   config['encryption_key'].encode(),
+                   config['integrity_key'].encode())
 
     data = data.decode()
     data = data.replace('\0', '')
 
-    ssid, password = data.split(':')
-
-    print("SSID:", ssid)
-    print("Password:", password)
+    print(data)
 
 
 if __name__ == '__main__':
