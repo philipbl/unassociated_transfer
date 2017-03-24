@@ -4,6 +4,7 @@ from collections import namedtuple
 from itertools import dropwhile
 import json
 import logging
+import math
 import struct
 
 import pyshark
@@ -60,10 +61,11 @@ def process_packets(packets):
         sequence = header & 0b1111111
 
         possible_loss = utils.FEC_LOSS[possible_loss_index]
-        packets_needed = possible_loss * total
+        packets_needed = math.floor(total * (1 - possible_loss))
 
         if not packets_needed.is_integer():
             LOGGER.error("packets_needed must be an integer: %s", packets_needed)
+            return
         packets_needed = int(packets_needed)
 
         yield Packet(id=id_,
