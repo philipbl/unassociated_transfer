@@ -32,7 +32,7 @@ def grouper(iterable, n, fillvalue=None):
     return zip_longest(*args, fillvalue=fillvalue)
 
 
-def send(data, encryption_key, integrity_key, send_flag=0, id_=0x3f, possible_loss=.5):
+def send(data, encryption_key, integrity_key, send_flag=0, id_=0x3f, possible_loss=.8):
     if len(data) % 16 != 0:
         LOGGER.error("Length of data must be a multiple of 16. It is currently %s.",
                      len(data))
