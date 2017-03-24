@@ -135,7 +135,6 @@ def get_message(packet_generator):
 
 def receive(interface, encryption_key, integrity_key, id_=0x3F):
     capture = pyshark.LiveCapture(interface=interface,
-                                  monitor_mode=True,
                                   capture_filter=FILTER.format((id_ << 2) + 2))
     packets = get_packets(capture.sniff_continuously(), id_)
     messages = get_message(packets)
@@ -159,6 +158,7 @@ def receive(interface, encryption_key, integrity_key, id_=0x3F):
             continue
 
         # Make sure this is a new packet and not a replayed old one
+        global_sequence_data = str(global_sequence_data)
         global_sequence, = struct.unpack(utils.GLOBAL_SEQUENCE_FORMAT,
                                          global_sequence_data)
         old_global_sequence = get_global_sequence()
