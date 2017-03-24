@@ -22,6 +22,7 @@ def main(ssid, password, send_flag, loss):
     send(data.encode(),
          config['encryption_key'].encode(),
          config['integrity_key'].encode(),
+         id_=config['id'].encode(),
          send_flag=send_flag,
          possible_loss=loss)
 
