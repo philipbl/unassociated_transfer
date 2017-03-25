@@ -32,9 +32,11 @@ if __name__ == '__main__':
         description='Send WiFi SSID and password to unassociated client')
     parser.add_argument('ssid')
     parser.add_argument('password')
-    parser.add_argument('-s', '--send-flag', type=int, choices=[0, 1], default=0,
+    parser.add_argument('-s', '--send-flag', type=int, choices=[0, 1],
+                        default=0,
                         help='Flag used to distinguish between transmissions.')
-    parser.add_argument('-l', '--loss', choices=utils.FEC_LOSS, default=utils.FEC_LOSS[0],
+    parser.add_argument('-l', '--loss', type=float, choices=utils.FEC_LOSS,
+                        default=utils.FEC_LOSS[0],
                         help='How much loss can be tolerated.')
 
     args = parser.parse_args()
