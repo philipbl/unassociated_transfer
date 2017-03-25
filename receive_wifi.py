@@ -15,7 +15,7 @@ def main(interface):
     data = receive(args.interface,
                    config['encryption_key'].encode(),
                    config['integrity_key'].encode(),
-                   id_=config['id'].encode())
+                   id_=config['id'])
 
     data = data.decode()
     data = data.replace('\0', '')
