@@ -131,7 +131,7 @@ def send(data, encryption_key, integrity_key, send_flag=0, id_=0x3f, possible_lo
         LOGGER.debug("Sending packet: Ether(src=%s, dst=%s)", src, dst)
         sendp(Ether(src=src, dst=dst))
 
-        time.sleep(.2)
+        time.sleep(.05)
 
 
 if __name__ == '__main__':
