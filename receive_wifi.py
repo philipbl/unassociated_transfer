@@ -17,9 +17,11 @@ def main(interface):
                    config['integrity_key'].encode(),
                    id_=config['id'])
 
+    if data is None:
+        return
+
     data = data.decode()
     data = data.replace('\0', '')
-
     print(data)
 
 
