@@ -101,11 +101,11 @@ def get_packets(capture_generator, id_):
             continue
 
         LOGGER.debug("Received packet: %s", packet)
-        packets.append(packet)
+        # packets.append(packet)
 
-        if len(packets) == packet.packets_needed:
-            LOGGER.debug("Received enough packets")
-            yield packets
+        # if len(packets) == packet.packets_needed:
+        #     LOGGER.debug("Received enough packets")
+        #     yield packets
 
 
 def get_message(packet_generator):
