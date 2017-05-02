@@ -4,9 +4,10 @@ import json
 import logging
 
 from send import send
+import utils
 
 
-def main(ssid, password):
+def main(ssid, password, send_flag, loss):
     # Get keys
     with open('config.json') as f:
         config = json.load(f)
@@ -20,7 +21,10 @@ def main(ssid, password):
 
     send(data.encode(),
          config['encryption_key'].encode(),
-         config['integrity_key'].encode())
+         config['integrity_key'].encode(),
+         id_=config['id'],
+         send_flag=send_flag,
+         possible_loss=loss)
 
 
 if __name__ == '__main__':
@@ -28,7 +32,12 @@ if __name__ == '__main__':
         description='Send WiFi SSID and password to unassociated client')
     parser.add_argument('ssid')
     parser.add_argument('password')
+    parser.add_argument('-s', '--send-flag', type=int, choices=[0, 1],
+                        default=0,
+                        help='Flag used to distinguish between transmissions.')
+    parser.add_argument('-l', '--loss', type=float, choices=utils.FEC_LOSS,
+                        default=utils.FEC_LOSS[0],
+                        help='How much loss can be tolerated.')
 
     args = parser.parse_args()
-
-    main(args.ssid, args.password)
+    main(args.ssid, args.password, args.send_flag, args.loss)

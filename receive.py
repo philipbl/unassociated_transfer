@@ -4,6 +4,7 @@ from collections import namedtuple
 from itertools import dropwhile
 import json
 import logging
+import math
 import struct
 
 import pyshark
@@ -60,10 +61,11 @@ def process_packets(packets):
         sequence = header & 0b1111111
 
         possible_loss = utils.FEC_LOSS[possible_loss_index]
-        packets_needed = possible_loss * total
+        packets_needed = math.floor(total * (1 - possible_loss))
 
         if not packets_needed.is_integer():
             LOGGER.error("packets_needed must be an integer: %s", packets_needed)
+            return
         packets_needed = int(packets_needed)
 
         yield Packet(id=id_,
@@ -135,7 +137,6 @@ def get_message(packet_generator):
 
 def receive(interface, encryption_key, integrity_key, id_=0x3F):
     capture = pyshark.LiveCapture(interface=interface,
-                                  monitor_mode=True,
                                   capture_filter=FILTER.format((id_ << 2) + 2))
     packets = get_packets(capture.sniff_continuously(), id_)
     messages = get_message(packets)
@@ -159,6 +160,7 @@ def receive(interface, encryption_key, integrity_key, id_=0x3F):
             continue
 
         # Make sure this is a new packet and not a replayed old one
+        global_sequence_data = str(global_sequence_data)
         global_sequence, = struct.unpack(utils.GLOBAL_SEQUENCE_FORMAT,
                                          global_sequence_data)
         old_global_sequence = get_global_sequence()

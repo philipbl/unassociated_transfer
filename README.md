@@ -6,7 +6,7 @@ This library allows an Ethernet connected device to send data to an unassociated
 ## Dependencies
 
 ```
-sudo apt install -y python-pip python-dev libxml2-dev libxslt1-dev tcpdump tshark
+sudo apt install -y python-pip python-dev libxml2-dev libxslt1-dev tcpdump tshark python-lxml
 sudo pip install -r requirements.txt
 ```
 
@@ -27,5 +27,5 @@ On the Ethernet connected device:
 sudo python send.py "here is some dat"
 ```
 
-The data that is sent must be divisible by 16. This is a requirement of the encryption algorithm. Padding can be added to solve this problem.
+The data that is sent must be divisible by 16. This is a requirement of the encryption algorithm. Padding can be added to solve this problem. This only supports Python 2.7.
 
