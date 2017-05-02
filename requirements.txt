@@ -1,6 +1,5 @@
 https://github.com/tahoe-lafs/zfec/archive/master.zip
 Logbook==1.0.0
-lxml==3.7.3
 py==1.4.32
 pycrypto==2.6.1
 scapy==2.3.3
