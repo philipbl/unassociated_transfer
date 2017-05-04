@@ -7,7 +7,7 @@ GLOBAL_SEQUENCE_FORMAT = '!Q'
 CONFIG_FILE_NAME = 'config.json'
 TOTAL_DATA = 7
 
-FEC_LOSS = [.9, .6, .4, .2]
+FEC_LOSS = [.85, .6, .4, .2]
 
 
 def hash_message(key, message):
