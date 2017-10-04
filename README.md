@@ -6,7 +6,8 @@ This library allows an Ethernet connected device to send data to an unassociated
 ## Dependencies
 
 ```
-sudo apt install -y python-pip python-dev libxml2-dev libxslt1-dev tcpdump tshark python-lxml
+sudo apt-get update
+sudo apt-get install -y python-pip python-dev libxml2-dev libxslt1-dev tcpdump tshark python-lxml
 sudo pip install -r requirements.txt
 ```
 
